@@ -18,7 +18,7 @@ const prefix = '!';
 const PORT = process.env.PORT || 3000;
 
 // Koneksi ke MongoDB
-mongoose.connect('mongodb://jamasantuy: Budeaxasb13@atlas-sql-6717e27b6ddc496cbce71b7e-sryeq.a.query.mongodb.net/?ssl=true&authSource=admin&appName=atlas-sql-6717e27b6ddc496cbce71b7e')
+mongoose.connect('mongodb://jamasantuy:Budeaxasb13@atlas-sql-6717e27b6ddc496cbce71b7e-sryeq.a.query.mongodb.net/?ssl=true&authSource=admin&appName=atlas-sql-6717e27b6ddc496cbce71b7e')
 .then(() => console.log('MongoDB Connected'))
 .catch(err => console.error('MongoDB connection error:', err));
 
