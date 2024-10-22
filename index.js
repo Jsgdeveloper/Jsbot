@@ -1,9 +1,12 @@
 // Import library
-const { Client, Intents, MessageEmbed } = require('discord.js');
 const express = require('express');
 const translate = require('@vitalets/google-translate-api');
 const app = express();
-const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES] });
+const { Client, GatewayIntentBits, MessageEmbed } = require('discord.js');
+const client = new Client({ 
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] 
+});
+
 
 const prefix = '!';
 const userData = {};
@@ -305,3 +308,4 @@ app.listen(PORT, () => {
 
 // Login ke Discord
 client.login(process.env.DISCORD_TOKEN);
+            
