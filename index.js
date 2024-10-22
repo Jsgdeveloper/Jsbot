@@ -2,7 +2,7 @@
 const express = require('express');
 const translate = require('@vitalets/google-translate-api');
 const app = express();
-const { Client, GatewayIntentBits, Events, MessageEmbed } = require('discord.js');
+const { Client, GatewayIntentBits, Events, EmbedBuilder } = require('discord.js');
 
 const client = new Client({
     intents: [
@@ -11,8 +11,6 @@ const client = new Client({
         GatewayIntentBits.MessageContent, // Penting untuk mendeteksi konten pesan
     ]
 });
-
-
 
 const prefix = '!';
 const userData = {};
@@ -38,7 +36,7 @@ app.get('/', (req, res) => {
 // Fungsi untuk meningkatkan level pengguna
 const levelUp = (userId) => {
     if (!userData[userId]) {
-        userData[userId] = { level: 1, experience: 0, coins: 0, jsmoney: 0 };
+        userData[userId] = { level: 1, experience: 0, coins: 0, jsmoney: 0, inventory: [] };
     }
     userData[userId].experience += 10; // Tambah pengalaman
     // Cek apakah pengguna naik level
@@ -88,9 +86,9 @@ client.on('messageCreate', async msg => {
             userData[msg.author.id] = { level: 1, experience: 0, coins: 0, jsmoney: 0, inventory: [] };
         }
         const profileMessage = `**${msg.author.username}**\nLevel: ${userData[msg.author.id].level} (Experience: ${userData[msg.author.id].experience}/100)\nCoins: ${userData[msg.author.id].coins}\nJSMoney: ${userData[msg.author.id].jsmoney}\nInventory: ${userData[msg.author.id].inventory.join(', ') || 'Kosong'}`;
-        const profileEmbed = new MessageEmbed()
+        const profileEmbed = new EmbedBuilder()
             .setDescription(profileMessage)
-            .setImage(msg.author.avatarURL())
+            .setThumbnail(msg.author.avatarURL()) // Memperbaiki bagian thumbnail
             .setColor('BLUE');
         msg.reply({ embeds: [profileEmbed] });
     }
@@ -106,7 +104,7 @@ client.on('messageCreate', async msg => {
             userData[userId] = { level: 1, experience: 0, coins: 0, jsmoney: 0, inventory: [] };
         }
         userData[userId].jsmoney += amount;
-        msg.reply(`JSMoney telah ditambahkan ke pengguna ${userId}!`);
+        msg.reply(`JSMoney telah ditambahkan ke pengguna <@${userId}>!`);
     }
 
     // Perintah !transfer
@@ -121,7 +119,7 @@ client.on('messageCreate', async msg => {
         }
         userData[msg.author.id].jsmoney -= amount;
         userData[userId].jsmoney += amount;
-        msg.reply(`JSMoney telah ditransfer ke pengguna ${userId}!`);
+        msg.reply(`JSMoney telah ditransfer ke pengguna <@${userId}>!`);
     }
 
     // Perintah !translate
@@ -142,22 +140,33 @@ client.on('messageCreate', async msg => {
             return msg.reply("JSMoney Anda tidak cukup!");
         }
         const symbols = ['🍒', '🍋', '🍊', '🍉', '⭐', '🍀'];
-        const result = [];
         
-        // Menghasilkan 3 simbol acak
-        for (let i = 0; i < 3; i++) {
-            const randomIndex = Math.floor(Math.random() * symbols.length);
-            result.push(symbols[randomIndex]);
-        }
+        msg.reply('Memutar slot...').then(async message => {
+            // Animasi berputar
+            let loadingMessage = await message.edit('🔄 Memutar...');
+            const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-        const slotMessage = `Hasil slot: ${result.join(' ')}\n`;
-        if (result[0] === result[1] && result[1] === result[2]) {
-            userData[msg.author.id].jsmoney += betAmount * 2; // Membayar kemenangan
-            msg.reply(`${slotMessage}Selamat! Anda menang! 🎉`);
-        } else {
-            userData[msg.author.id].jsmoney -= betAmount; // Mengurangi taruhan
-            msg.reply(`${slotMessage}Coba lagi! 😢`);
-        }
+            for (let i = 0; i < 3; i++) {
+                await delay(500); // Delay setengah detik
+                const randomIndex = Math.floor(Math.random() * symbols.length);
+                loadingMessage = await message.edit(`🔄 Memutar...\n${symbols[randomIndex]}`); // Tampilkan simbol secara bertahap
+            }
+
+            const result = [];
+            for (let i = 0; i < 3; i++) {
+                const randomIndex = Math.floor(Math.random() * symbols.length);
+                result.push(symbols[randomIndex]);
+            }
+
+            const slotMessage = `Hasil slot: ${result.join(' ')}\n`;
+            if (result[0] === result[1] && result[1] === result[2]) {
+                userData[msg.author.id].jsmoney += betAmount * 2; // Membayar kemenangan
+                msg.reply(`${slotMessage}Selamat! Anda menang! 🎉`);
+            } else {
+                userData[msg.author.id].jsmoney -= betAmount; // Mengurangi taruhan
+                msg.reply(`${slotMessage}Coba lagi! 😢`);
+            }
+        });
     }
 
     // Perintah !gacha
@@ -183,135 +192,94 @@ client.on('messageCreate', async msg => {
             return msg.reply("Anda tidak memiliki item tersebut!");
         }
         const index = userData[msg.author.id].inventory.indexOf(item);
-        userData[msg.author.id].inventory.splice(index, 1);
-        userData[userId].inventory.push(item);
-        msg.reply(`Anda telah menukar item ${item} dengan pengguna ${userId}!`);
-    }
-
-    // Perintah !inventory
-    else if (command === 'inventory') {
-        if (!userData[msg.author.id]) {
-            userData[msg.author.id] = { level: 1, experience: 0, coins: 0, jsmoney: 0, inventory: [] };
-        }
-        const inventoryMessage = `Inventory Anda: ${userData[msg.author.id].inventory.join (', ') || 'Kosong'}`;
-        msg.reply(inventoryMessage);
-    }
-
-    // Perintah !quest
-    else if (command === 'quest') {
-        if (!userData[msg.author.id]) {
-            userData[msg.author.id] = { level: 1, experience: 0, coins: 0, jsmoney: 0, inventory: [] };
-        }
-        const reward = 50;
-        userData[msg.author.id].jsmoney += reward;
-        msg.reply(`Quest selesai! Anda mendapatkan ${reward} JSMoney!`);
-    }
-
-    // Perintah !achievement
-    else if (command === 'achievement') {
-        if (!userData[msg.author.id]) {
-            userData[msg.author.id] = { level: 1, experience: 0, coins: 0, jsmoney: 0, inventory: [] };
-        }
-        const achievements = ['First Quest', 'Level 5 Reached', 'First Trade'];
-        const randomAchievement = achievements[Math.floor(Math.random() * achievements.length)];
-        msg.reply(`Anda telah mencapai achievement: ${randomAchievement}`);
-    }
-
-    // Perintah !leaderboard
-    else if (command === 'leaderboard') {
-        let leaderboardMessage = 'Leaderboard:\n';
-        for (const userId in userData) {
-            leaderboardMessage += `${client.users.cache.get(userId)?.username || 'Unknown'} - Level: ${userData[userId].level}, JSMoney: ${userData[userId].jsmoney}\n`;
-        }
-        msg.reply(leaderboardMessage);
-    }
-
-    // Perintah !level
-    else if (command === 'level') {
-        if (!userData[msg.author.id]) {
-            userData[msg.author.id] = { level: 1, experience: 0, coins: 0, jsmoney: 0, inventory: [] };
-        }
-        const levelMessage = `Level: ${userData[msg.author.id].level} (Experience: ${userData[msg.author.id].experience}/100)`;
-        msg.reply(levelMessage);
+        userData[msg.author.id].inventory.splice(index, 1); // Hapus item dari inventory
+        userData[userId].inventory.push(item); // Tambahkan item ke pengguna lain
+        msg.reply(`Anda berhasil menukar item ${item} dengan pengguna <@${userId}>!`);
     }
 
     // Perintah !trivia
     else if (command === 'trivia') {
-        const randomQuestion = triviaQuestions[Math.floor(Math.random() * triviaQuestions.length)];
-        msg.reply(randomQuestion.question);
+        const question = triviaQuestions[Math.floor(Math.random() * triviaQuestions.length)];
+        const filter = response => response.author.id === msg.author.id;
+        msg.channel.send(question.question);
 
-        const filter = m => m.author.id === msg.author.id;
         const collector = msg.channel.createMessageCollector({ filter, time: 15000 });
-
-        collector.on('collect', m => {
-            if (m.content.toLowerCase() === randomQuestion.answer.toLowerCase()) {
-                msg.reply("Jawaban benar!");
+        collector.on('collect', response => {
+            if (response.content.toLowerCase() === question.answer.toLowerCase()) {
+                msg.reply(`Tepat sekali! Jawaban Anda benar: ${question.answer}`);
                 collector.stop();
             } else {
-                msg.reply("Jawaban salah, coba lagi!");
+                msg.reply("Jawaban Anda salah, coba lagi!");
             }
         });
 
         collector.on('end', collected => {
             if (collected.size === 0) {
-                msg.reply("Waktu habis! Jawabannya adalah " + randomQuestion.answer);
+                msg.reply(`Waktu habis! Jawaban yang benar adalah: ${question.answer}`);
             }
         });
     }
 
     // Perintah !guess
     else if (command === 'guess') {
-        const randomNumber = Math.floor(Math.random() * 10) + 1;
-        msg.reply("Coba tebak angka antara 1 dan 10!");
+        const targetNumber = Math.floor(Math.random() * 100) + 1; // Angka acak dari 1 hingga 100
+        const filter = response => response.author.id === msg.author.id;
+        msg.channel.send("Tebak angka antara 1 dan 100:");
 
-        const filter = m => m.author.id === msg.author.id;
-        const collector = msg.channel.createMessageCollector({ filter, time: 15000 });
-
-        collector.on('collect', m => {
-            const guess = parseInt(m.content);
-            if (guess === randomNumber) {
-                msg.reply("Tebakan benar!");
+        const collector = msg.channel.createMessageCollector({ filter, time: 30000 });
+        collector.on('collect', response => {
+            const guess = parseInt(response.content);
+            if (guess === targetNumber) {
+                msg.reply("Selamat! Tebakan Anda benar!");
                 collector.stop();
+            } else if (guess < targetNumber) {
+                msg.reply("Terlalu rendah, coba lagi!");
             } else {
-                msg.reply("Salah, coba lagi!");
+                msg.reply("Terlalu tinggi, coba lagi!");
             }
         });
 
         collector.on('end', collected => {
             if (collected.size === 0) {
-                msg.reply("Waktu habis! Angka yang benar adalah " + randomNumber);
+                msg.reply(`Waktu habis! Angka yang benar adalah: ${targetNumber}`);
             }
         });
     }
 
     // Perintah !daily
     else if (command === 'daily') {
+        const dailyReward = 100; // Jumlah hadiah harian
         if (!userData[msg.author.id]) {
             userData[msg.author.id] = { level: 1, experience: 0, coins: 0, jsmoney: 0, inventory: [] };
         }
-        const dailyReward = 100;
         userData[msg.author.id].jsmoney += dailyReward;
-        msg.reply(`Anda mendapatkan hadiah harian sebesar ${dailyReward} JSMoney!`);
+        msg.reply(`Anda telah menerima hadiah harian sebesar ${dailyReward} JSMoney!`);
     }
 
-    // Perintah !ping
-    else if (command === 'ping') {
-        msg.reply('Pong! ' + client.ws.ping + 'ms');
+    // Perintah !level
+    else if (command === 'level') {
+        const levelMessage = `Level Anda: ${userData[msg.author.id] ? userData[msg.author.id].level : 1}`;
+        msg.reply(levelMessage);
     }
 
-    // Perintah !info
-    else if (command === 'info') {
-        msg.reply('Bot ini dibuat untuk bersenang-senang di server Discord. Nikmati fitur-fitur game dan quiz!');
+    // Perintah !achievement
+    else if (command === 'achievement') {
+        const achievementMessage = "Daftar Achievement: ..."; // Tambahkan daftar achievement sesuai kebutuhan
+        msg.reply(achievementMessage);
     }
 
-    // Tambahkan logika untuk perintah lainnya sesuai kebutuhan
+    // Perintah !leaderboard
+    else if (command === 'leaderboard') {
+        const leaderboardMessage = "Daftar Peringkat: ..."; // Tambahkan daftar peringkat sesuai kebutuhan
+        msg.reply(leaderboardMessage);
+    }
 });
 
 // Menjalankan server
 app.listen(PORT, () => {
-    console.log(`Server berjalan di port ${PORT}`);
+    console.log(`Server berjalan di http://localhost:${PORT}`);
 });
 
-// Login ke Discord
+// Login ke bot dengan token yang disimpan di environment variables
 client.login(process.env.DISCORD_TOKEN);
-            
+                            
