@@ -2,7 +2,8 @@
 const express = require('express');
 const translate = require('@vitalets/google-translate-api');
 const app = express();
-const { Client, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits, Events, MessageEmbed } = require('discord.js');
+
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
