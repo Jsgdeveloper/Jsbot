@@ -1,5 +1,5 @@
 {
-  "name": "JsBots,
+  "name": "JsBots",
   "version": "1.0.0",
   "description": "Discord bot with Express server",
   "main": "index.js",
