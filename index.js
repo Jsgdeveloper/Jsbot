@@ -78,7 +78,7 @@ client.on('messageCreate', async msg => {
                 **!transfer <user> <amount>** - Mentransfer jsmoney ke pengguna lain
                 **!translate <bahasa> <teks>** - Menerjemahkan teks ke bahasa yang diinginkan
             `)
-            .setColor('BLUE');
+            .setColor(0x3498db); // Menggunakan kode hex untuk warna biru
         msg.reply({ embeds: [helpEmbed] });
     }
 
@@ -96,7 +96,7 @@ client.on('messageCreate', async msg => {
                 **Inventory:** ${userData[msg.author.id].inventory.join(', ') || 'Kosong'}
             `)
             .setThumbnail(msg.author.avatarURL())
-            .setColor('GREEN');
+            .setColor(0x2ecc71); // Menggunakan kode hex untuk warna hijau
         msg.reply({ embeds: [profileEmbed] });
     }
 
@@ -183,8 +183,8 @@ client.on('messageCreate', async msg => {
                 resultMessage += `🎉 Selamat! Anda menang!`;
             } else if (uniqueResults.size === 2) { // Dua simbol sama
                 userData[msg.author.id].jsmoney += betAmount; // Membayar setengah taruhan
-                resultMessage += `🎊 Anda menang!`;
-            } else { // Semua simbol berbeda
+                resultMessage += `😊 Anda menang setengah!`;
+            } else {
                 userData[msg.author.id].jsmoney -= betAmount; // Mengurangi taruhan
                 resultMessage += `😢 Coba lagi!`;
             }
@@ -193,7 +193,7 @@ client.on('messageCreate', async msg => {
             const resultEmbed = new EmbedBuilder()
                 .setTitle('🎰 Hasil Slot')
                 .setDescription(resultMessage)
-                .setColor('YELLOW');
+                .setColor(0xF1C40F); // Menggunakan kode hex untuk warna kuning
 
             await message.edit({ content: null, embeds: [resultEmbed] });
         });
