@@ -1,6 +1,8 @@
 // Import library
 const express = require('express');
 const translate = require('@vitalets/google-translate-api');
+const mongoose = require('mongoose');
+const User = require('./models/user'); // Import model user
 const app = express();
 const { Client, GatewayIntentBits, Events, EmbedBuilder } = require('discord.js');
 
@@ -8,20 +10,19 @@ const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent, // Penting untuk mendeteksi konten pesan
+        GatewayIntentBits.MessageContent,
     ]
 });
 
 const prefix = '!';
-const userData = {};
-const adminId = '1250940447325421663'; // Ganti dengan ID pengguna pemilik bot
 const PORT = process.env.PORT || 3000;
 
-const triviaQuestions = [
-    { question: "Apa ibu kota Prancis?", answer: "Paris" },
-    { question: "Siapa penulis 'Harry Potter'?", answer: "J.K. Rowling" },
-    { question: "Berapa banyak planet di tata surya?", answer: "8" },
-];
+// Koneksi ke MongoDB
+mongoose.connect('mongodb://jamasantuy: Budeaxasb13@atlas-sql-6717e27b6ddc496cbce71b7e-sryeq.a.query.mongodb.net/?ssl=true&authSource=admin&appName=atlas-sql-6717e27b6ddc496cbce71b7e', {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+}).then(() => console.log('MongoDB Connected'))
+.catch(err => console.error('MongoDB connection error:', err));
 
 // Event saat bot siap digunakan
 client.on('ready', () => {
@@ -34,16 +35,19 @@ app.get('/', (req, res) => {
 });
 
 // Fungsi untuk meningkatkan level pengguna
-const levelUp = (userId) => {
-    if (!userData[userId]) {
-        userData[userId] = { level: 1, experience: 0, coins: 0, jsmoney: 0, inventory: [] };
+const levelUp = async (userId) => {
+    let user = await User.findOne({ userId });
+    if (!user) {
+        user = new User({ userId });
     }
-    userData[userId].experience += 10; // Tambah pengalaman
+    user.experience += 10; // Tambah pengalaman
+
     // Cek apakah pengguna naik level
-    if (userData[userId].experience >= 100) {
-        userData[userId].level++;
-        userData[userId].experience = 0; // Reset pengalaman
+    if (user.experience >= 100) {
+        user.level++;
+        user.experience = 0; // Reset pengalaman
     }
+    await user.save();
 };
 
 // Event saat pesan diterima
@@ -77,203 +81,164 @@ client.on('messageCreate', async msg => {
                 **!addmoney <user> <amount>** - Menambahkan jsmoney ke pengguna (admin hanya)
                 **!transfer <user> <amount>** - Mentransfer jsmoney ke pengguna lain
                 **!translate <bahasa> <teks>** - Menerjemahkan teks ke bahasa yang diinginkan
+                **!battle <user>** - Melawan pengguna lain
+                **!duel <user> <taruhan>** - Menantang pengguna lain untuk duel
+                **!farm** - Melakukan farming untuk mendapatkan jsmoney
             `)
-            .setColor(0x3498db); // Menggunakan kode hex untuk warna biru
+            .setColor(0x3498db);
         msg.reply({ embeds: [helpEmbed] });
+    }
+
+    // Perintah !info
+    else if (command === 'info') {
+        const infoEmbed = new EmbedBuilder()
+            .setTitle('🤖 Informasi Bot')
+            .setDescription('Bot ini dibuat untuk memberikan berbagai fitur menarik dan permainan di Discord!')
+            .addField('Versi:', '1.0.0', true)
+            .addField('Pengembang:', 'HendraCoders', true)
+            .setColor(0x2ecc71);
+        msg.reply({ embeds: [infoEmbed] });
     }
 
     // Perintah !profile
     else if (command === 'profile') {
-        if (!userData[msg.author.id]) {
-            userData[msg.author.id] = { level: 1, experience: 0, coins: 0, jsmoney: 0, inventory: [] };
+        let user = await User.findOne({ userId: msg.author.id });
+        if (!user) {
+            user = new User({ userId: msg.author.id });
+            await user.save();
         }
         const profileEmbed = new EmbedBuilder()
             .setTitle(`👤 Profil ${msg.author.username}`)
             .setDescription(`
-                **Level:** ${userData[msg.author.id].level} (Experience: ${userData[msg.author.id].experience}/100)
-                **Coins:** ${userData[msg.author.id].coins}
-                **JSMoney:** ${userData[msg.author.id].jsmoney}
-                **Inventory:** ${userData[msg.author.id].inventory.join(', ') || 'Kosong'}
+                **Level:** ${user.level} (Experience: ${user.experience}/100)
+                **Coins:** ${user.coins}
+                **JSMoney:** ${user.jsmoney}
+                **Inventory:** ${user.inventory.join(', ') || 'Kosong'}
             `)
             .setThumbnail(msg.author.avatarURL())
-            .setColor(0x2ecc71); // Menggunakan kode hex untuk warna hijau
+            .setColor(0x2ecc71);
         msg.reply({ embeds: [profileEmbed] });
-    }
-
-    // Perintah !addmoney
-    else if (command === 'addmoney') {
-        if (msg.author.id !== adminId) {
-            return msg.reply("❌ Hanya pemilik bot yang dapat menambahkan jsmoney!");
-        }
-        const userId = args[0].replace(/[<@!>]/g, ''); // Menghapus karakter yang tidak perlu
-        const amount = parseInt(args[1]);
-        if (!userData[userId]) {
-            userData[userId] = { level: 1, experience: 0, coins: 0, jsmoney: 0, inventory: [] };
-        }
-        userData[userId].jsmoney += amount;
-        msg.reply(`✅ JSMoney telah ditambahkan ke pengguna <@${userId}>!`);
-    }
-
-    // Perintah !transfer
-    else if (command === 'transfer') {
-        const userId = args[0].replace(/[<@!>]/g, ''); // Menghapus karakter yang tidak perlu
-        const amount = parseInt(args[1]);
-        if (!userData[msg.author.id] || !userData[userId]) {
-            return msg.reply("❌ Pengguna tidak ditemukan!");
-        }
-        if (userData[msg.author.id].jsmoney < amount) {
-            return msg.reply("❌ JSMoney Anda tidak cukup!");
-        }
-        userData[msg.author.id].jsmoney -= amount;
-        userData[userId].jsmoney += amount;
-        msg.reply(`✅ JSMoney telah ditransfer ke pengguna <@${userId}>!`);
-    }
-
-    // Perintah !translate
-    else if (command === 'translate') {
-        const language = args[0];
-        const text = args.slice(1).join(' ');
-        translate(text, { to: language }).then(res => {
-            msg.reply(`🌍 Terjemahan: ${res.text}`);
-        }).catch(err => {
-            msg.reply("❌ Terjadi kesalahan saat menerjemahkan.");
-        });
-    }
-
-    // Perintah !ping
-    else if (command === 'ping') {
-        msg.reply('🏓 Pong!');
-    }
-
-    // Perintah !slot
-    else if (command === 'slot') {
-        const betAmount = parseInt(args[0]);
-        if (!userData[msg.author.id] || userData[msg.author.id].jsmoney < betAmount) {
-            return msg.reply("❌ JSMoney Anda tidak cukup!");
-        }
-        const symbols = ['🍒', '🍋', '🍊', '🍉', '⭐', '🍀'];
-        
-        msg.reply('🔄 Memutar slot...').then(async message => {
-            // Animasi berputar
-            let loadingMessage = await message.edit('🔄 Memutar...');
-
-            const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-            // Menampilkan animasi berputar
-            const spinningFrames = ['🔄 Memutar...', '🔄 Memutar...', '🔄 Memutar...'];
-            for (const frame of spinningFrames) {
-                await delay(500); // Delay setengah detik
-                loadingMessage = await message.edit(frame);
-            }
-
-            // Tampilkan simbol satu per satu
-            const result = [];
-            for (let i = 0; i < 3; i++) {
-                const randomIndex = Math.floor(Math.random() * symbols.length);
-                await delay(1000); // Delay satu detik untuk menunjukkan setiap simbol
-                loadingMessage = await message.edit(`Hasil slot: ${result.join(' ')}\n${symbols[randomIndex]}`);
-                result.push(symbols[randomIndex]);
-            }
-
-            // Evaluasi hasil
-            const uniqueResults = new Set(result);
-            let resultMessage = `Hasil slot: ${result.join(' ')}\n`;
-            if (uniqueResults.size === 1) { // Semua simbol sama
-                userData[msg.author.id].jsmoney += betAmount * 2; // Membayar kemenangan
-                resultMessage += `🎉 Selamat! Anda menang!`;
-            } else if (uniqueResults.size === 2) { // Dua simbol sama
-                userData[msg.author.id].jsmoney += betAmount; // Membayar setengah taruhan
-                resultMessage += `😊 Anda menang setengah!`;
-            } else {
-                userData[msg.author.id].jsmoney -= betAmount; // Mengurangi taruhan
-                resultMessage += `😢 Coba lagi!`;
-            }
-
-            // Mengedit pesan akhir dengan format yang lebih baik
-            const resultEmbed = new EmbedBuilder()
-                .setTitle('🎰 Hasil Slot')
-                .setDescription(resultMessage)
-                .setColor(0xF1C40F); // Menggunakan kode hex untuk warna kuning
-
-            await message.edit({ content: null, embeds: [resultEmbed] });
-        });
-    }
-
-    // Perintah !trivia
-    else if (command === 'trivia') {
-        const question = triviaQuestions[Math.floor(Math.random() * triviaQuestions.length)];
-        const filter = response => response.author.id === msg.author.id;
-        msg.channel.send(`🧠 Pertanyaan Trivia: ${question.question}`);
-
-        const collector = msg.channel.createMessageCollector({ filter, time: 15000 });
-        collector.on('collect', response => {
-            if (response.content.toLowerCase() === question.answer.toLowerCase()) {
-                msg.reply(`✅ Tepat sekali! Jawaban Anda benar: ${question.answer}`);
-                collector.stop();
-            } else {
-                msg.reply("❌ Jawaban Anda salah, coba lagi!");
-            }
-        });
-
-        collector.on('end', collected => {
-            if (collected.size === 0) {
-                msg.reply(`⏰ Waktu habis! Jawaban yang benar adalah: ${question.answer}`);
-            }
-        });
-    }
-
-    // Perintah !guess
-    else if (command === 'guess') {
-        const targetNumber = Math.floor(Math.random() * 100) + 1; // Angka acak dari 1 hingga 100
-        const filter = response => response.author.id === msg.author.id;
-        msg.channel.send("🎯 Tebak angka antara 1 dan 100:");
-
-        const collector = msg.channel.createMessageCollector({ filter, time: 30000 });
-        collector.on('collect', response => {
-            const guess = parseInt(response.content);
-            if (guess === targetNumber) {
-                msg.reply("🎉 Selamat! Tebakan Anda benar!");
-                collector.stop();
-            } else if (guess < targetNumber) {
-                msg.reply("⬇️ Terlalu rendah, coba lagi!");
-            } else {
-                msg.reply("⬆️ Terlalu tinggi, coba lagi!");
-            }
-        });
-
-        collector.on('end', collected => {
-            if (collected.size === 0) {
-                msg.reply(`⏰ Waktu habis! Angka yang benar adalah: ${targetNumber}`);
-            }
-        });
     }
 
     // Perintah !daily
     else if (command === 'daily') {
         const dailyReward = 100; // Jumlah hadiah harian
-        if (!userData[msg.author.id]) {
-            userData[msg.author.id] = { level: 1, experience: 0, coins: 0, jsmoney: 0, inventory: [] };
+        let user = await User.findOne({ userId: msg.author.id });
+        if (!user) {
+            user = new User({ userId: msg.author.id });
         }
-        userData[msg.author.id].jsmoney += dailyReward;
+        user.jsmoney += dailyReward;
+        await user.save();
         msg.reply(`🎁 Anda telah menerima hadiah harian sebesar ${dailyReward} JSMoney!`);
     }
 
-    // Perintah !level
-    else if (command === 'level') {
-        const levelMessage = `📈 Level Anda: ${userData[msg.author.id] ? userData[msg.author.id].level : 1}`;
-        msg.reply(levelMessage);
+    // Perintah !battle
+    else if (command === 'battle') {
+        const opponentId = args[0].replace(/[<@!>]/g, '');
+        const user = await User.findOne({ userId: msg.author.id });
+        const opponent = await User.findOne({ userId: opponentId });
+
+        if (!opponent) {
+            return msg.reply("❌ Pengguna tidak ditemukan!");
+        }
+
+        const userHealth = user.level * 10; // HP pengguna
+        const opponentHealth = opponent.level * 10; // HP lawan
+
+        // Simulasi pertarungan
+        const battleEmbed = new EmbedBuilder()
+            .setTitle(`⚔️ Pertarungan antara ${msg.author.username} dan ${opponent.username}`)
+            .setDescription(`**${msg.author.username} HP:** ${userHealth} vs **${opponent.username} HP:** ${opponentHealth}`)
+            .setColor(0xe74c3c);
+        msg.reply({ embeds: [battleEmbed] });
+
+        while (userHealth > 0 && opponentHealth > 0) {
+            const userDamage = Math.floor(Math.random() * user.level) + 1;
+            const opponentDamage = Math.floor(Math.random() * opponent.level) + 1;
+            opponentHealth -= userDamage;
+            userHealth -= opponentDamage;
+
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Delay 2 detik untuk efek
+            msg.channel.send(`**${msg.author.username}** menyerang dan memberi **${userDamage}** damage!`);
+            msg.channel.send(`**${opponent.username}** menyerang dan memberi **${opponentDamage}** damage!`);
+        }
+
+        if (userHealth <= 0 && opponentHealth <= 0) {
+            msg.channel.send("🏳️ Pertarungan berakhir imbang!");
+        } else if (userHealth <= 0) {
+            msg.channel.send(`💔 ${msg.author.username} kalah!`);
+        } else {
+            msg.channel.send(`🏆 ${msg.author.username} menang!`);
+        }
     }
 
-    // Perintah !achievement
-    else if (command === 'achievement') {
-        const achievementMessage = "🏆 Daftar Achievement: ..."; // Tambahkan daftar achievement sesuai kebutuhan
-        msg.reply(achievementMessage);
+    // Perintah !duel
+    else if (command === 'duel') {
+        const opponentId = args[0].replace(/[<@!>]/g, '');
+        const betAmount = parseInt(args[1]);
+        const user = await User.findOne({ userId: msg.author.id });
+        const opponent = await User.findOne({ userId: opponentId });
+
+        if (!opponent) {
+            return msg.reply("❌ Pengguna tidak ditemukan!");
+        }
+
+        if (user.jsmoney < betAmount) {
+            return msg.reply("❌ Anda tidak memiliki cukup jsmoney untuk bertaruh!");
+        }
+
+        const win = Math.random() < 0.5; // 50% kemungkinan menang
+        if (win) {
+            user.jsmoney += betAmount;
+            opponent.jsmoney -= betAmount;
+            msg.reply(`🏆 Anda menang melawan ${opponent.username} dan mendapatkan ${betAmount} JSMoney!`);
+        } else {
+            user.jsmoney -= betAmount;
+            opponent.jsmoney += betAmount;
+            msg.reply(`💔 Anda kalah melawan ${opponent.username} dan kehilangan ${betAmount} JSMoney!`);
+        }
+
+        await user.save();
+        await opponent.save();
     }
 
-    // Perintah !leaderboard
-    else if (command === 'leaderboard') {
-        const leaderboardMessage = "🏅 Daftar Peringkat: ..."; // Tambahkan daftar peringkat sesuai kebutuhan
-        msg.reply(leaderboardMessage);
+    // Perintah !inventory
+    else if (command === 'inventory') {
+        let user = await User.findOne({ userId: msg.author.id });
+        if (!user) {
+            user = new User({ userId: msg.author.id });
+            await user.save();
+        }
+        const inventoryEmbed = new EmbedBuilder()
+            .setTitle(`🎒 Inventory ${msg.author.username}`)
+            .setDescription(user.inventory.length ? user.inventory.join(', ') : 'Kosong')
+            .setColor(0x2ecc71);
+        msg.reply({ embeds: [inventoryEmbed] });
+    }
+
+    // Perintah !guess
+    else if (command === 'guess') {
+        const guessNumber = parseInt(args[0]);
+        const randomNumber = Math.floor(Math.random() * 10) + 1; // Angka acak antara 1-10
+
+        if (guessNumber === randomNumber) {
+            msg.reply(`🎉 Selamat! Anda menebak angka yang benar: ${randomNumber}`);
+            await levelUp(msg.author.id);
+        } else {
+            msg.reply(`❌ Sayang sekali! Angka yang benar adalah: ${randomNumber}`);
+        }
+    }
+
+    // Perintah !translate
+    else if (command === 'translate') {
+        const targetLang = args[0];
+        const textToTranslate = args.slice(1).join(' ');
+
+        translate(textToTranslate, { to: targetLang }).then(res => {
+            msg.reply(`🔤 Terjemahan: ${res.text}`);
+        }).catch(err => {
+            msg.reply("❌ Gagal menerjemahkan!");
+        });
     }
 });
 
@@ -282,6 +247,6 @@ app.listen(PORT, () => {
     console.log(`Server berjalan di http://localhost:${PORT}`);
 });
 
-// Login ke bot dengan token yang disimpan di environment variables
+// Login ke Discord
 client.login(process.env.DISCORD_TOKEN);
-        
+    
