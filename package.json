@@ -1,0 +1,20 @@
+{
+  "name": "JsBots,
+  "version": "1.0.0",
+  "description": "Discord bot with Express server",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.16.3",
+    "express": "^4.21.1",
+    "@vitalets/google-translate-api": "^9.2.0",
+    "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=22.10.0"
+  },
+  "author": "HendraCoders",
+  "license": "MIT"
+}

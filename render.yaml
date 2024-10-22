@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: discord-bot
+    env: node
+    plan: free
+    buildCommand: "npm install"
+    startCommand: "npm start"
+    envVars:
+      - key: DISCORD_TOKEN
+        value: ${DISCORD_TOKEN}
+      - key: PORT
+        value: "3000"
