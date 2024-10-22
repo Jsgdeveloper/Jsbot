@@ -2,10 +2,15 @@
 const express = require('express');
 const translate = require('@vitalets/google-translate-api');
 const app = express();
-const { Client, GatewayIntentBits, MessageEmbed } = require('discord.js');
-const client = new Client({ 
-    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] 
+const { Client, GatewayIntentBits } = require('discord.js');
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent, // Penting untuk mendeteksi konten pesan
+    ]
 });
+
 
 
 const prefix = '!';
