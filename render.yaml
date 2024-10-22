@@ -10,3 +10,6 @@ services:
         value: ${DISCORD_TOKEN}
       - key: PORT
         value: "3000"
+      - key: MONGODB_URI
+        value: ${MONGODB_URI} # Tambahkan variabel lingkungan untuk MongoDB
+        
